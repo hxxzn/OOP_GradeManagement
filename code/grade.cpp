@@ -1,84 +1,114 @@
 #include <iostream>
 #include <string>
-#include <map>
+#include <fstream>
+#include <sstream>
 #include <vector>
 #include <algorithm>
-#include <limits>
-#include "file.cpp"
-#include "professor.cpp"
+#include <stdexcept>
 
-using namespace std;
-
+// Grade 클래스 정의
 class Grade {
 private:
-
-    string courseName;
-    string courseID;
-    string studentID;
-
-    map<string, double> finalScores; // 학생 ID와 최종 점수 저장
-    vector<pair<string, double>> rankList; // 등수 계산 결과 저장
-    map<string, map<string, int>> studentGrades;
-
-    double midScore; // 중간 
-    double finalScore; // 기말
-    double assignmentScore; // 과제
-    double attendanceScore; // 출석
-    double overallScore; // 최종 성적...
+    std::string studentID;   // 학번
+    std::string studentName; // 학생명
+    double midtermScore, finalScore, assignmentScore, attendanceScore; // 점수들
+    double totalScore; // 최종 점수
 
 public:
     // 생성자
-    Grade(const string& cName, const string& cID, const string& sID)
-        : courseName(cName), courseID(cID), studentID(sID),
-        midScore(0), finalScore(0), assignmentScore(0), attendanceScore(0), overallScore(0) {}
+    Grade(const std::string& id, const std::string& name,
+        double mid, double fin, double assign, double attend)
+        : studentID(id), studentName(name),
+        midtermScore(mid), finalScore(fin),
+        assignmentScore(assign), attendanceScore(attend),
+        totalScore(0) {}
 
-
-    // 학생 성적을 가져와 map에 저장하는 함수
-    void setGradeMap(File& file) {
-        vector<vector<string>> data = file.getCSV();
-
-        for (size_t i = 1; i < data.size(); ++i) {
-            string studentID = data[i][3];
-            map<string, int> grades;
-            grades["중간고사"] = stoi(data[i][4]);
-            grades["기말고사"] = stoi(data[i][5]);
-            grades["과제"] = stoi(data[i][6]);
-            grades["출석"] = stoi(data[i][7]);
-            studentGrades[studentID] = grades;
-        }
-        cout << "성적이 성공적으로 저장되었습니다." << endl;
+    // 총 점수 계산
+    void calculateTotalScore(double midWeight, double finalWeight, double assignWeight, double attendWeight) {
+        totalScore = midtermScore * midWeight +
+            finalScore * finalWeight +
+            assignmentScore * assignWeight +
+            attendanceScore * attendWeight;
     }
 
-    // 가중치 반영 성적 계산 함수
-    void calculateScore(const Professor& professor, const string& studentID) {
-        if (studentGrades.find(studentID) == studentGrades.end()) {
-            cout << "오류: 해당 학번의 학생 성적 데이터가 없습니다." << endl;
-            return;
-        }
-
-        const map<string, double>& gradeWeights = professor.getGradeWeights();
-        double midtermWeight = gradeWeights.at("중간고사");
-        double finalWeight = gradeWeights.at("기말고사");
-        double assignmentWeight = gradeWeights.at("과제");
-        double attendanceWeight = gradeWeights.at("출석");
-
-        midScore = studentGrades[studentID]["중간고사"];
-        finalScore = studentGrades[studentID]["기말고사"];
-        assignmentScore = studentGrades[studentID]["과제"];
-        attendanceScore = studentGrades[studentID]["출석"];
-
-        overallScore = (midScore * midtermWeight / 100) +
-            (finalScore * finalWeight / 100) +
-            (assignmentScore * assignmentWeight / 100) +
-            (attendanceScore * attendanceWeight / 100);
-
-        // 최종 점수를 finalScores에 저장
-        finalScores[studentID] = overallScore;
-
-        cout << "최종 성적 계산 완료: " << overallScore << endl;
+    double getTotalScore() const {
+        return totalScore;
     }
-
-
-
 
 };
+
+// CSV 처리 함수
+void processCSV(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Error: Unable to open file." << std::endl;
+        return;
+    }
+
+    std::string line;
+    int lineNumber = 0;
+
+    std::string professorCode, courseCode;
+    double midtermWeight = 0, finalWeight = 0, assignmentWeight = 0, attendanceWeight = 0;
+
+    std::vector<Grade> grades; // Grade 객체를 저장할 벡터
+
+    while (std::getline(file, line)) {
+        lineNumber++;
+        std::istringstream stream(line);
+
+        // 첫 번째 행 처리
+        if (lineNumber == 1) {
+            std::string midWeight, finalWeight, assignWeight, attendWeight;
+
+            std::getline(stream, professorCode, ',');     // 교수 코드
+            std::getline(stream, courseCode, ',');        // 강의 코드
+            std::getline(stream, midWeight, ',');         // 중간고사 가중치
+            std::getline(stream, finalWeight, ',');       // 기말고사 가중치
+            std::getline(stream, assignWeight, ',');      // 과제 가중치
+            std::getline(stream, attendWeight, ',');      // 출석 가중치
+
+            // 문자열을 double로 변환
+            try {
+                midtermWeight = std::stod(midWeight);
+                finalWeight = std::stod(finalWeight);
+                assignmentWeight = std::stod(assignWeight);
+                attendanceWeight = std::stod(attendWeight);
+            }
+            catch (const std::exception& e) {
+                std::cerr << "Error: Invalid weight format in line 1." << std::endl;
+                return;
+            }
+        }
+        // 세 번째 행 이후 데이터 처리
+        else if (lineNumber >= 3) {
+            std::string id, name, midStr, finalStr, assignStr, attendStr;
+
+            std::getline(stream, id, ',');        // 학생 ID
+            std::getline(stream, name, ',');      // 학생 이름
+            std::getline(stream, midStr, ',');    // 중간고사 점수
+            std::getline(stream, finalStr, ',');  // 기말고사 점수
+            std::getline(stream, assignStr, ','); // 과제 점수
+            std::getline(stream, attendStr, ','); // 출석 점수
+
+            try {
+                double midScore = std::stod(midStr);
+                double finalScore = std::stod(finalStr);
+                double assignScore = std::stod(assignStr);
+                double attendScore = std::stod(attendStr);
+
+                // Grade 객체 생성 및 벡터에 추가
+                Grade grade(id, name, midScore, finalScore, assignScore, attendScore);
+                grade.calculateTotalScore(midtermWeight, finalWeight, assignmentWeight, attendanceWeight);
+                grades.push_back(grade);
+            }
+            catch (const std::exception& e) {
+                std::cerr << "Error: Invalid score format in line " << lineNumber << "." << std::endl;
+                continue;
+            }
+        }
+    }
+
+    file.close();
+
+}

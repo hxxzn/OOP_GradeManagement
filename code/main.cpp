@@ -8,6 +8,10 @@
 
 using namespace std;
 
+
+
+
+
 // 단일 파일에서 학번과 이름을 확인하는 함수 ========================
 bool verifyInFile(const string& filePath, int inputId, const string& inputName) {
     ifstream file(filePath);
@@ -29,6 +33,10 @@ bool verifyInFile(const string& filePath, int inputId, const string& inputName) 
 
     return false; // 파일 끝까지 확인해도 없으면 false 반환
 } // 단일 파일에서 학번과 이름을 확인하는 함수 Fin ========================
+
+
+
+
 
 int main() {
 
@@ -97,7 +105,7 @@ int main() {
         // csv 파일의 성적을 불러와서 저장
         grade.setGradeMap(file);
 
-
+      
 
 
 

@@ -1,2 +1,0 @@
-1. 터미널에 g++ -std=c++17 -o start main.cpp
-2. ./test 로 실행
